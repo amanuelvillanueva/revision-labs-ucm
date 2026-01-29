@@ -1,0 +1,1178 @@
+import React, { useState, useEffect } from 'react';
+import { Check, X, AlertCircle, Download, Upload, Calendar, Monitor, Users, Settings, FileText, MessageSquare, Wifi, Globe } from 'lucide-react';
+
+const LabRevisionApp = () => {
+  // Configuración de laboratorios y software
+  const labs = {
+    'LAB01': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes01' },
+    'LAB02': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes02' },
+    'LAB03': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes03' },
+    'LAB04': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes04' },
+    'LAB05': { puestos: 21, sistemas: ['Windows'], puestoProfesor: 'Profes05' },
+    'LAB06': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes06' },
+    'LAB07': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes07' },
+    'LAB08': { puestos: 21, sistemas: ['Windows', 'Linux', 'MSwinCONSOLAS'], puestoProfesor: 'Profes08' },
+    'LAB09': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes09' },
+    'LAB10': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes10' },
+    'LAB11': { puestos: 21, sistemas: ['Windows', 'Linux'], puestoProfesor: 'Profes11' }
+  };
+
+  const softwareBySubject = {
+    'FAL': {
+      Windows: ['MSVStudio 2022 Enterprise', 'Eclipse 2025-03 JEE', 'URL: http://exacrc'],
+      Linux: ['Eclipse 2025-03 JEE', 'URL: http://exacrc']
+    },
+    'EDA': {
+      Windows: ['MSVStudio 2022 Enterprise', 'URL: http://exacrc']
+    },
+    'TAIS': {
+      Windows: ['MSVStudio 2022 Enterprise', 'URL: http://exacrc']
+    },
+    'MAR': {
+      Windows: ['MSVStudio 2022 Enterprise', 'URL: http://exacrc']
+    },
+    'AAP': {
+      Windows: ['Anaconda3']
+    },
+    'AA': {
+      Windows: ['Anaconda3']
+    },
+    'AA2': {
+      Linux: ['Anaconda3']
+    },
+    'TDC': {
+      Windows: ['Anaconda3'],
+      Linux: ['Anaconda3']
+    },
+    'VAR': {
+      Windows: ['Anaconda3']
+    },
+    'MOT': {
+      Windows: ['MSVStudio 2022 Enterprise', 'Unity']
+    },
+    'AW': {
+      Windows: ['MSVStudio code', 'MySQL', 'Apache 2']
+    },
+    'ASOR': {
+      Linux: ['VirtualBox', 'VMPlayer', 'MSVStudio code', '/mnt/DiscoVMs/ASOR/']
+    },
+    'LIN': {
+      Linux: ['VM_LIN-debian.sh', 'VM_LINandroid.sh', '/mnt/DiscoVMs/LIN/']
+    },
+    'SO': {
+      Linux: []
+    },
+    'SBC': {
+      Linux: ['Anaconda3']
+    },
+    'VDM': {
+      Windows: ['Android Studio', 'Unity']
+    },
+    'DA': {
+      Windows: ['MSVStudio 2022 Enterprise', 'Eclipse 2025-03 JEE', 'URL: http://exacrc']
+    }
+  };
+
+  const checklistTemplate = {
+    equipoProfesor: [
+      'Inicio de sesión profesor',
+      'Servidor de MODOS funcional',
+      'Script borrado FTP',
+      'Sistema recogida ftplabs',
+      'Publicación en todos los LABs',
+      'Sistema NAS red interna',
+      'Proyector - Duplicación',
+      'Proyector - Ampliación',
+      'Audio funcional',
+      'Cámara funcional'
+    ],
+    revision: {
+      Windows: [
+        'Arranque sistema',
+        'Eliminador ejecutado',
+        'Login usuario',
+        'Impresoras (2)',
+        'Red UCM funcional',
+        'Red LOCAL funcional',
+        'Sistema entrega ftplabs',
+        'Sistema NAS',
+        'Campus Virtual',
+        'Unidad V: (HDVMs)'
+      ],
+      Linux: [
+        'Arranque sistema',
+        'Eliminador ejecutado',
+        'Login usuario',
+        'Impresoras (2)',
+        'Red UCM funcional',
+        'Red LOCAL funcional',
+        'Sistema entrega ftplabs',
+        'Sistema NAS',
+        'Campus Virtual'
+      ],
+      MSwinCONSOLAS: [
+        'Arranque sistema',
+        'Eliminador ejecutado',
+        'Login usuario (pass: 24DonkeY25)',
+        'Impresoras (2)',
+        'Red UCM funcional',
+        'Red LOCAL funcional',
+        'Sistema entrega ftplabs',
+        'Sistema NAS',
+        'Campus Virtual'
+      ]
+    }
+  };
+
+  const [selectedLab, setSelectedLab] = useState('LAB01');
+  const [revisionType, setRevisionType] = useState('pre');
+  const [revisionDate, setRevisionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [currentView, setCurrentView] = useState('labs');
+  const [selectedPuesto, setSelectedPuesto] = useState(null);
+  const [selectedSistema, setSelectedSistema] = useState('Windows');
+  
+  // Nuevos estados para equipos de muestra
+  const [selectedSamplePuestos, setSelectedSamplePuestos] = useState({
+    profesor: labs[selectedLab].puestoProfesor,
+    redUCM: [2, 3],
+    redLocal: [4, 5]
+  });
+
+  // Estado para modal de anotaciones
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [currentNote, setCurrentNote] = useState({
+    category: '',
+    item: '',
+    puesto: null,
+    sistema: null,
+    text: ''
+  });
+  const textareaRef = React.useRef(null);
+  const tecnicoInputRef = React.useRef(null);
+  
+  const [revisionData, setRevisionData] = useState(() => {
+    const saved = localStorage.getItem('labRevisions');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('labRevisions', JSON.stringify(revisionData));
+  }, [revisionData]);
+
+  const getRevisionKey = () => {
+    return `${selectedLab}_${revisionDate}_${revisionType}`;
+  };
+
+  const getCurrentRevision = () => {
+    const key = getRevisionKey();
+    if (!revisionData[key]) {
+      const defaultTime = new Date().toTimeString().slice(0, 5);
+      return {
+        lab: selectedLab,
+        date: revisionDate,
+        time: defaultTime,
+        tecnico: '',
+        type: revisionType,
+        subjects: selectedSubjects,
+        equipoProfesor: {},
+        puestos: {},
+        notes: {},
+        samplePuestos: selectedSamplePuestos
+      };
+    }
+    return revisionData[key];
+  };
+
+  const updateRevision = (updates) => {
+    const key = getRevisionKey();
+    const current = getCurrentRevision();
+    setRevisionData(prev => ({
+      ...prev,
+      [key]: {
+        ...current,
+        ...updates
+      }
+    }));
+  };
+
+  const toggleCheck = (category, item, puesto = null, sistema = null) => {
+    const current = getCurrentRevision();
+    const newData = { ...current };
+
+    if (category === 'equipoProfesor') {
+      newData.equipoProfesor = {
+        ...newData.equipoProfesor,
+        [item]: !newData.equipoProfesor[item]
+      };
+    } else if (puesto !== null) {
+      if (!newData.puestos[puesto]) {
+        newData.puestos[puesto] = {};
+      }
+      if (!newData.puestos[puesto][sistema]) {
+        newData.puestos[puesto][sistema] = {};
+      }
+      if (!newData.puestos[puesto][sistema][category]) {
+        newData.puestos[puesto][sistema][category] = {};
+      }
+      newData.puestos[puesto][sistema][category][item] = 
+        !newData.puestos[puesto][sistema][category][item];
+    }
+
+    updateRevision(newData);
+  };
+
+  const openNotesModal = (category, item, puesto = null, sistema = null) => {
+    const key = getRevisionKey();
+    const current = revisionData[key];
+    const noteKey = `${category}_${item}_${puesto}_${sistema}`;
+    const existingNote = current?.notes?.[noteKey] || '';
+    
+    setCurrentNote({
+      category,
+      item,
+      puesto,
+      sistema,
+      text: existingNote
+    });
+    setShowNotesModal(true);
+    
+    // Establecer el valor del textarea después de que se monte
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.value = existingNote;
+      }
+    }, 0);
+  };
+
+  const saveNote = () => {
+    const key = getRevisionKey();
+    const current = revisionData[key] || getCurrentRevision();
+    const noteKey = `${currentNote.category}_${currentNote.item}_${currentNote.puesto}_${currentNote.sistema}`;
+    const noteValue = textareaRef.current?.value || '';
+    
+    const newNotes = { ...(current.notes || {}) };
+    if (noteValue.trim()) {
+      newNotes[noteKey] = noteValue;
+    } else {
+      delete newNotes[noteKey];
+    }
+
+    setRevisionData(prev => ({
+      ...prev,
+      [key]: {
+        ...current,
+        notes: newNotes
+      }
+    }));
+    setShowNotesModal(false);
+  };
+
+  const hasNote = (category, item, puesto = null, sistema = null) => {
+    const key = getRevisionKey();
+    const current = revisionData[key];
+    const noteKey = `${category}_${item}_${puesto}_${sistema}`;
+    return current?.notes?.[noteKey] && current.notes[noteKey].trim() !== '';
+  };
+
+  const getProgress = () => {
+    const current = getCurrentRevision();
+    let total = 0;
+    let completed = 0;
+
+    // Solo contar equipos de muestra
+    const puestosToCheck = [
+      labs[selectedLab].puestoProfesor,
+      ...current.samplePuestos.redUCM,
+      ...current.samplePuestos.redLocal
+    ];
+
+    // Equipo profesor
+    total += checklistTemplate.equipoProfesor.length;
+    completed += Object.values(current.equipoProfesor).filter(Boolean).length;
+
+    // Puestos de muestra
+    const sistemas = labs[selectedLab].sistemas;
+    
+    sistemas.forEach(sistema => {
+      const checks = checklistTemplate.revision[sistema] || [];
+      total += checks.length * puestosToCheck.length;
+      
+      puestosToCheck.forEach(puesto => {
+        const puestoData = current.puestos[puesto]?.[sistema];
+        if (puestoData) {
+          completed += Object.values(puestoData.revision || {}).filter(Boolean).length;
+        }
+      });
+    });
+
+    // Software por asignatura (solo equipos de muestra)
+    selectedSubjects.forEach(subject => {
+      const sw = softwareBySubject[subject] || {};
+      sistemas.forEach(sistema => {
+        const items = sw[sistema] || [];
+        total += items.length * puestosToCheck.length;
+        
+        puestosToCheck.forEach(puesto => {
+          const puestoData = current.puestos[puesto]?.[sistema];
+          if (puestoData) {
+            completed += Object.values(puestoData[subject] || {}).filter(Boolean).length;
+          }
+        });
+      });
+    });
+
+    return total > 0 ? Math.round((completed / total) * 100) : 0;
+  };
+
+  const generateReport = () => {
+    try {
+      const current = getCurrentRevision();
+      const sistemas = labs[selectedLab].sistemas;
+      const puestosToCheck = [
+        { num: labs[selectedLab].puestoProfesor, tipo: 'Profesor' },
+        { num: current.samplePuestos.redUCM[0], tipo: 'Red UCM' },
+        { num: current.samplePuestos.redUCM[1], tipo: 'Red UCM' },
+        { num: current.samplePuestos.redLocal[0], tipo: 'Red Local' },
+        { num: current.samplePuestos.redLocal[1], tipo: 'Red Local' }
+      ];
+
+      let deficiencias = [];
+      let estadoGeneral = 'OK';
+
+      // Revisar equipo profesor
+      checklistTemplate.equipoProfesor.forEach(item => {
+        if (!current.equipoProfesor[item]) {
+          estadoGeneral = 'DEFICIENCIAS ENCONTRADAS';
+          const noteKey = `equipoProfesor_${item}_null_null`;
+          const note = current.notes?.[noteKey] || 'No especificado';
+          deficiencias.push({
+            area: 'Equipo Profesor',
+            item: item,
+            nota: note
+          });
+        }
+      });
+
+      // Revisar puestos de muestra
+      puestosToCheck.forEach(({ num, tipo }) => {
+        sistemas.forEach(sistema => {
+          // Revisión básica
+          const checks = checklistTemplate.revision[sistema] || [];
+          checks.forEach(item => {
+            if (!current.puestos[num]?.[sistema]?.revision?.[item]) {
+              estadoGeneral = 'DEFICIENCIAS ENCONTRADAS';
+              const noteKey = `revision_${item}_${num}_${sistema}`;
+              const note = current.notes?.[noteKey] || 'No especificado';
+              deficiencias.push({
+                area: `Puesto ${num} (${tipo}) - ${sistema}`,
+                item: item,
+                nota: note
+              });
+            }
+          });
+
+          // Software por asignatura
+          selectedSubjects.forEach(subject => {
+            const swItems = softwareBySubject[subject]?.[sistema] || [];
+            swItems.forEach(item => {
+              if (!current.puestos[num]?.[sistema]?.[subject]?.[item]) {
+                estadoGeneral = 'DEFICIENCIAS ENCONTRADAS';
+                const noteKey = `${subject}_${item}_${num}_${sistema}`;
+                const note = current.notes?.[noteKey] || 'No especificado';
+                deficiencias.push({
+                  area: `Puesto ${num} (${tipo}) - ${sistema} - ${subject}`,
+                  item: item,
+                  nota: note
+                });
+              }
+            });
+          });
+        });
+      });
+
+      // Generar documento de texto
+      let report = `╔═══════════════════════════════════════════════════════════════════════╗
+║        INFORME DE REVISIÓN DE LABORATORIO                             ║
+║        Facultad de Informática - UCM                                  ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+INFORMACIÓN GENERAL
+═══════════════════════════════════════════════════════════════════════
+Laboratorio:        ${current.lab}
+Fecha de revisión:  ${new Date(current.date).toLocaleDateString('es-ES')}
+Hora de revisión:   ${current.time || 'No especificada'}
+Técnico:            ${current.tecnico || 'No especificado'}
+Tipo de revisión:   ${current.type === 'pre' ? 'Pre-Examen' : 'Post-Clonación'}
+Progreso:           ${getProgress()}%
+
+EQUIPOS REVISADOS (MUESTRA)
+═══════════════════════════════════════════════════════════════════════
+• Equipo Profesor:    ${labs[selectedLab].puestoProfesor}
+• Red UCM:            Puestos ${current.samplePuestos.redUCM.join(', ')}
+• Red Local Interna:  Puestos ${current.samplePuestos.redLocal.join(', ')}
+
+ASIGNATURAS REVISADAS
+═══════════════════════════════════════════════════════════════════════
+${selectedSubjects.length > 0 ? selectedSubjects.join(', ') : 'Ninguna'}
+
+ESTADO GENERAL DEL LABORATORIO
+═══════════════════════════════════════════════════════════════════════
+${estadoGeneral}
+
+`;
+
+      if (deficiencias.length > 0) {
+        report += `
+DEFICIENCIAS ENCONTRADAS (${deficiencias.length})
+═══════════════════════════════════════════════════════════════════════
+
+`;
+        deficiencias.forEach((def, index) => {
+          report += `${index + 1}. ${def.area}
+   └─ ${def.item}
+   └─ Observación: ${def.nota}
+
+`;
+        });
+      } else {
+        report += `
+✓ No se encontraron deficiencias en la revisión.
+✓ Todos los sistemas verificados están funcionando correctamente.
+`;
+      }
+
+      report += `
+═══════════════════════════════════════════════════════════════════════
+Informe generado el ${new Date().toLocaleString('es-ES')}
+═══════════════════════════════════════════════════════════════════════
+`;
+
+      // Descargar el informe
+      const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Informe_${current.lab}_${current.date}_${current.type}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      alert('Informe generado correctamente');
+    } catch (error) {
+      console.error('Error al generar informe:', error);
+      alert('Error al generar el informe');
+    }
+  };
+
+  const exportData = () => {
+    try {
+      const dataStr = JSON.stringify(revisionData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `revisiones_labs_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      alert('Datos exportados correctamente');
+    } catch (error) {
+      console.error('Error al exportar:', error);
+      alert('Error al exportar los datos');
+    }
+  };
+
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          setRevisionData(imported);
+          alert('Datos importados correctamente');
+        } catch (error) {
+          alert('Error al importar datos');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Vista de selección de laboratorio
+  const LabsView = () => {
+    const current = getCurrentRevision();
+    
+    // Establecer valor inicial del input de técnico
+    React.useEffect(() => {
+      if (tecnicoInputRef.current && current.tecnico) {
+        tecnicoInputRef.current.value = current.tecnico;
+      }
+    }, [current.tecnico]);
+    
+    return (
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Configuración de Revisión
+          </h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Laboratorio</label>
+              <select 
+                value={selectedLab}
+                onChange={(e) => setSelectedLab(e.target.value)}
+                className="w-full p-2 border rounded-lg"
+              >
+                {Object.keys(labs).map(lab => (
+                  <option key={lab} value={lab}>{lab}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Tipo de Revisión</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRevisionType('pre')}
+                  className={`flex-1 p-3 rounded-lg border-2 ${
+                    revisionType === 'pre' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300'
+                  }`}
+                >
+                  Pre-Examen
+                </button>
+                <button
+                  onClick={() => setRevisionType('post')}
+                  className={`flex-1 p-3 rounded-lg border-2 ${
+                    revisionType === 'post' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300'
+                  }`}
+                >
+                  Post-Clonación
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Fecha</label>
+              <input
+                type="date"
+                value={revisionDate}
+                onChange={(e) => setRevisionDate(e.target.value)}
+                className="w-full p-2 border rounded-lg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Hora de Revisión</label>
+              <div className="flex gap-2">
+                <select
+                  value={current.time?.split(':')[0] || new Date().getHours().toString().padStart(2, '0')}
+                  onChange={(e) => {
+                    const minutes = current.time?.split(':')[1] || '00';
+                    updateRevision({ time: `${e.target.value}:${minutes}` });
+                  }}
+                  className="flex-1 p-2 border rounded-lg"
+                >
+                  {[...Array(24)].map((_, i) => (
+                    <option key={i} value={i.toString().padStart(2, '0')}>
+                      {i.toString().padStart(2, '0')}
+                    </option>
+                  ))}
+                </select>
+                <span className="flex items-center">:</span>
+                <select
+                  value={current.time?.split(':')[1] || '00'}
+                  onChange={(e) => {
+                    const hours = current.time?.split(':')[0] || new Date().getHours().toString().padStart(2, '0');
+                    updateRevision({ time: `${hours}:${e.target.value}` });
+                  }}
+                  className="flex-1 p-2 border rounded-lg"
+                >
+                  {[...Array(60)].map((_, i) => (
+                    <option key={i} value={i.toString().padStart(2, '0')}>
+                      {i.toString().padStart(2, '0')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Técnico Responsable</label>
+              <input
+                ref={tecnicoInputRef}
+                type="text"
+                defaultValue={current.tecnico || ''}
+                onBlur={(e) => updateRevision({ tecnico: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    updateRevision({ tecnico: e.target.value });
+                  }
+                }}
+                placeholder="Nombre del técnico"
+                className="w-full p-2 border rounded-lg"
+              />
+            </div>
+
+            {/* Selector de equipos de muestra */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium mb-3">Equipos de Muestra para Revisión</label>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-600 flex items-center gap-2 mb-1">
+                    <Monitor className="w-4 h-4" />
+                    Equipo Profesor
+                  </label>
+                  <input
+                    type="text"
+                    value={labs[selectedLab].puestoProfesor}
+                    disabled
+                    className="w-full p-2 border rounded bg-gray-100 text-gray-700 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-600 flex items-center gap-2 mb-1">
+                    <Globe className="w-4 h-4" />
+                    Red UCM (2 equipos)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedSamplePuestos.redUCM[0]}
+                      onChange={(e) => {
+                        const newPuestos = { 
+                          ...selectedSamplePuestos, 
+                          redUCM: [parseInt(e.target.value), selectedSamplePuestos.redUCM[1]] 
+                        };
+                        setSelectedSamplePuestos(newPuestos);
+                        updateRevision({ samplePuestos: newPuestos });
+                      }}
+                      className="flex-1 p-2 border rounded"
+                    >
+                      {[...Array(labs[selectedLab].puestos)].map((_, i) => (
+                        <option key={i+1} value={i+1}>Puesto {i+1}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedSamplePuestos.redUCM[1]}
+                      onChange={(e) => {
+                        const newPuestos = { 
+                          ...selectedSamplePuestos, 
+                          redUCM: [selectedSamplePuestos.redUCM[0], parseInt(e.target.value)] 
+                        };
+                        setSelectedSamplePuestos(newPuestos);
+                        updateRevision({ samplePuestos: newPuestos });
+                      }}
+                      className="flex-1 p-2 border rounded"
+                    >
+                      {[...Array(labs[selectedLab].puestos)].map((_, i) => (
+                        <option key={i+1} value={i+1}>Puesto {i+1}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-600 flex items-center gap-2 mb-1">
+                    <Wifi className="w-4 h-4" />
+                    Red Local Interna (2 equipos)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedSamplePuestos.redLocal[0]}
+                      onChange={(e) => {
+                        const newPuestos = { 
+                          ...selectedSamplePuestos, 
+                          redLocal: [parseInt(e.target.value), selectedSamplePuestos.redLocal[1]] 
+                        };
+                        setSelectedSamplePuestos(newPuestos);
+                        updateRevision({ samplePuestos: newPuestos });
+                      }}
+                      className="flex-1 p-2 border rounded"
+                    >
+                      {[...Array(labs[selectedLab].puestos)].map((_, i) => (
+                        <option key={i+1} value={i+1}>Puesto {i+1}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedSamplePuestos.redLocal[1]}
+                      onChange={(e) => {
+                        const newPuestos = { 
+                          ...selectedSamplePuestos, 
+                          redLocal: [selectedSamplePuestos.redLocal[0], parseInt(e.target.value)] 
+                        };
+                        setSelectedSamplePuestos(newPuestos);
+                        updateRevision({ samplePuestos: newPuestos });
+                      }}
+                      className="flex-1 p-2 border rounded"
+                    >
+                      {[...Array(labs[selectedLab].puestos)].map((_, i) => (
+                        <option key={i+1} value={i+1}>Puesto {i+1}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Asignaturas a revisar</label>
+              <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                {Object.keys(softwareBySubject).sort().map(subject => (
+                  <label key={subject} className="flex items-center gap-2 p-2 border rounded">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubjects.includes(subject)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSubjects([...selectedSubjects, subject]);
+                        } else {
+                          setSelectedSubjects(selectedSubjects.filter(s => s !== subject));
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">{subject}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold">Progreso de Revisión</h3>
+            <span className="text-3xl font-bold">{getProgress()}%</span>
+          </div>
+          <div className="w-full bg-blue-300 rounded-full h-4">
+            <div 
+              className="bg-white rounded-full h-4 transition-all duration-300"
+              style={{ width: `${getProgress()}%` }}
+            />
+          </div>
+          <div className="mt-4 text-sm opacity-90">
+            {selectedLab} - {revisionType === 'pre' ? 'Pre-Examen' : 'Post-Clonación'}
+          </div>
+          {getCurrentRevision().tecnico && (
+            <div className="mt-2 text-sm opacity-90">
+              Técnico: {getCurrentRevision().tecnico}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => setCurrentView('checklist')}
+          className="w-full bg-green-500 text-white p-4 rounded-lg font-bold text-lg shadow-lg hover:bg-green-600"
+        >
+          Iniciar Revisión
+        </button>
+      </div>
+    );
+  };
+
+  // Vista de checklist
+  const ChecklistView = () => {
+    const current = getCurrentRevision();
+    const sistemas = labs[selectedLab].sistemas;
+    const puestosToCheck = [
+      labs[selectedLab].puestoProfesor,
+      ...current.samplePuestos.redUCM,
+      ...current.samplePuestos.redLocal
+    ];
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold">{selectedLab} - {revisionDate}</h2>
+              {getCurrentRevision().tecnico && (
+                <p className="text-sm text-gray-600">Técnico: {getCurrentRevision().tecnico}</p>
+              )}
+            </div>
+            <div
+              onClick={() => setCurrentView('labs')}
+              className="text-blue-500 font-medium cursor-pointer hover:underline"
+            >
+              Cambiar Lab
+            </div>
+          </div>
+
+          {/* Equipo Profesor */}
+          <div className="mb-6">
+            <h3 className="font-bold text-lg mb-3 flex items-center gap-2 bg-blue-100 p-2 rounded">
+              <Monitor className="w-5 h-5" />
+              Equipo Profesor
+            </h3>
+            <div className="space-y-2">
+              {checklistTemplate.equipoProfesor.map(item => (
+                <div key={item} className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleCheck('equipoProfesor', item)}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ' || e.key === 'Enter') {
+                        e.preventDefault();
+                        toggleCheck('equipoProfesor', item);
+                      }
+                    }}
+                    tabIndex={0}
+                    className={`flex-1 p-3 rounded-lg border-2 text-left flex items-center gap-3 ${
+                      current.equipoProfesor[item]
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                  >
+                    {current.equipoProfesor[item] ? (
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />
+                    )}
+                    <span className="text-sm flex-1">{item}</span>
+                  </button>
+                  <div
+                    onClick={() => openNotesModal('equipoProfesor', item)}
+                    className={`p-3 rounded-lg border-2 cursor-pointer ${
+                      hasNote('equipoProfesor', item)
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                    title="Añadir nota"
+                  >
+                    <MessageSquare className={`w-5 h-5 ${
+                      hasNote('equipoProfesor', item) ? 'text-orange-500' : 'text-gray-400'
+                    }`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Selector de Puesto - Solo equipos de muestra */}
+          <div className="mb-4">
+            <h3 className="font-bold text-lg mb-3 flex items-center gap-2 bg-purple-100 p-2 rounded">
+              <Users className="w-5 h-5" />
+              Equipos de Muestra
+            </h3>
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              {puestosToCheck.map((puestoNum, index) => {
+                const puestoData = current.puestos[puestoNum];
+                let checksCount = 0;
+                let totalChecks = 0;
+
+                sistemas.forEach(sistema => {
+                  const sysData = puestoData?.[sistema];
+                  if (sysData) {
+                    checksCount += Object.values(sysData.revision || {}).filter(Boolean).length;
+                    checksCount += selectedSubjects.reduce((acc, subj) => 
+                      acc + Object.values(sysData[subj] || {}).filter(Boolean).length, 0
+                    );
+                  }
+                  totalChecks += (checklistTemplate.revision[sistema] || []).length;
+                  totalChecks += selectedSubjects.reduce((acc, subj) => 
+                    acc + (softwareBySubject[subj]?.[sistema] || []).length, 0
+                  );
+                });
+
+                const isDone = totalChecks > 0 && checksCount === totalChecks;
+                let label = String(puestoNum);
+                let subtitle = '';
+                
+                if (index === 0) {
+                  label = labs[selectedLab].puestoProfesor;
+                  subtitle = 'Profesor';
+                } else if (index <= 2) {
+                  label = String(puestoNum).padStart(2, '0');
+                  subtitle = 'Red UCM';
+                } else {
+                  label = String(puestoNum).padStart(2, '0');
+                  subtitle = 'Red Local';
+                }
+
+                return (
+                  <div
+                    key={puestoNum}
+                    onClick={() => setSelectedPuesto(puestoNum)}
+                    className={`p-3 rounded-lg border-2 font-bold cursor-pointer ${
+                      selectedPuesto === puestoNum
+                        ? 'border-blue-500 bg-blue-100'
+                        : isDone
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div>{label}</div>
+                    <div className="text-xs font-normal text-gray-600">{subtitle}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Checklist del puesto seleccionado */}
+          {selectedPuesto && (
+            <div className="border-t-2 pt-4">
+              <h3 className="font-bold text-lg mb-3">
+                {selectedPuesto === labs[selectedLab].puestoProfesor ? `Equipo Profesor (${labs[selectedLab].puestoProfesor})` : `Puesto ${selectedPuesto}`}
+              </h3>
+
+              {/* Selector de Sistema */}
+              <div className="flex gap-2 mb-4">
+                {sistemas.map(sistema => (
+                  <div
+                    key={sistema}
+                    onClick={() => setSelectedSistema(sistema)}
+                    className={`flex-1 p-2 rounded-lg border-2 cursor-pointer text-center ${
+                      selectedSistema === sistema
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-300'
+                    }`}
+                  >
+                    {sistema}
+                  </div>
+                ))}
+              </div>
+
+              {/* Checklist de revisión básica */}
+              <div className="mb-4">
+                <h4 className="font-semibold mb-2 text-gray-700">Revisión Básica</h4>
+                <div className="space-y-2">
+                  {(checklistTemplate.revision[selectedSistema] || []).map(item => (
+                    <div key={item} className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleCheck('revision', item, selectedPuesto, selectedSistema)}
+                        onKeyDown={(e) => {
+                          if (e.key === ' ' || e.key === 'Enter') {
+                            e.preventDefault();
+                            toggleCheck('revision', item, selectedPuesto, selectedSistema);
+                          }
+                        }}
+                        tabIndex={0}
+                        className={`flex-1 p-2 rounded-lg border-2 text-left flex items-center gap-2 text-sm ${
+                          current.puestos[selectedPuesto]?.[selectedSistema]?.revision?.[item]
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {current.puestos[selectedPuesto]?.[selectedSistema]?.revision?.[item] ? (
+                          <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <div className="w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0" />
+                        )}
+                        <span className="flex-1">{item}</span>
+                      </button>
+                      <div
+                        onClick={() => openNotesModal('revision', item, selectedPuesto, selectedSistema)}
+                        className={`p-2 rounded-lg border-2 cursor-pointer ${
+                          hasNote('revision', item, selectedPuesto, selectedSistema)
+                            ? 'border-orange-500 bg-orange-50'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                        title="Añadir nota"
+                      >
+                        <MessageSquare className={`w-4 h-4 ${
+                          hasNote('revision', item, selectedPuesto, selectedSistema) ? 'text-orange-500' : 'text-gray-400'
+                        }`} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Software por asignatura */}
+              {selectedSubjects.map(subject => {
+                const swItems = softwareBySubject[subject]?.[selectedSistema];
+                if (!swItems || swItems.length === 0) return null;
+
+                return (
+                  <div key={subject} className="mb-4">
+                    <h4 className="font-semibold mb-2 text-gray-700 bg-yellow-100 p-2 rounded">
+                      {subject}
+                    </h4>
+                    <div className="space-y-2">
+                      {swItems.map(item => (
+                        <div key={item} className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleCheck(subject, item, selectedPuesto, selectedSistema)}
+                            onKeyDown={(e) => {
+                              if (e.key === ' ' || e.key === 'Enter') {
+                                e.preventDefault();
+                                toggleCheck(subject, item, selectedPuesto, selectedSistema);
+                              }
+                            }}
+                            tabIndex={0}
+                            className={`flex-1 p-2 rounded-lg border-2 text-left flex items-center gap-2 text-sm ${
+                              current.puestos[selectedPuesto]?.[selectedSistema]?.[subject]?.[item]
+                                ? 'border-green-500 bg-green-50'
+                                : 'border-gray-300 bg-white'
+                            }`}
+                          >
+                            {current.puestos[selectedPuesto]?.[selectedSistema]?.[subject]?.[item] ? (
+                              <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            ) : (
+                              <div className="w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0" />
+                            )}
+                            <span className="flex-1">{item}</span>
+                          </button>
+                          <div
+                            onClick={() => openNotesModal(subject, item, selectedPuesto, selectedSistema)}
+                            className={`p-2 rounded-lg border-2 cursor-pointer ${
+                              hasNote(subject, item, selectedPuesto, selectedSistema)
+                                ? 'border-orange-500 bg-orange-50'
+                                : 'border-gray-300 bg-white'
+                            }`}
+                            title="Añadir nota"
+                          >
+                            <MessageSquare className={`w-4 h-4 ${
+                              hasNote(subject, item, selectedPuesto, selectedSistema) ? 'text-orange-500' : 'text-gray-400'
+                            }`} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Modal de notas
+  const NotesModal = () => {
+    if (!showNotesModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            Añadir Observación
+          </h3>
+          
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>Item:</strong> {currentNote.item}
+            </p>
+            {currentNote.puesto && (
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Puesto:</strong> {currentNote.puesto} - {currentNote.sistema}
+              </p>
+            )}
+          </div>
+
+          <textarea
+            ref={textareaRef}
+            defaultValue=""
+            placeholder="Describe la deficiencia encontrada o cualquier observación relevante..."
+            className="w-full p-3 border rounded-lg h-32 resize-none"
+            style={{ direction: 'ltr', textAlign: 'left' }}
+            autoFocus
+          />
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setShowNotesModal(false)}
+              className="flex-1 p-3 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={saveNote}
+              className="flex-1 p-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-lg p-6 mb-6">
+        <h1 className="text-2xl font-bold mb-2">Sistema de Revisión de Laboratorios</h1>
+        <p className="text-blue-100">Facultad de Informática - UCM</p>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white rounded-lg shadow-md p-2 mb-6 flex gap-2">
+        <div
+          onClick={() => setCurrentView('labs')}
+          className={`flex-1 p-3 rounded-lg font-medium cursor-pointer ${
+            currentView === 'labs' ? 'bg-blue-500 text-white' : 'text-gray-600'
+          }`}
+        >
+          Laboratorios
+        </div>
+        <div
+          onClick={() => setCurrentView('checklist')}
+          className={`flex-1 p-3 rounded-lg font-medium cursor-pointer ${
+            currentView === 'checklist' ? 'bg-blue-500 text-white' : 'text-gray-600'
+          }`}
+        >
+          Revisión
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6 grid grid-cols-3 gap-2">
+        <div
+          onClick={() => {
+            console.log('Generando informe...');
+            generateReport();
+          }}
+          className="p-3 bg-purple-500 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-purple-600 active:bg-purple-700 cursor-pointer"
+        >
+          <FileText className="w-5 h-5" />
+          Informe
+        </div>
+        <div
+          onClick={() => {
+            console.log('Exportando datos...');
+            exportData();
+          }}
+          className="p-3 bg-green-500 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-600 active:bg-green-700 cursor-pointer"
+        >
+          <Download className="w-5 h-5" />
+          Exportar
+        </div>
+        <label className="p-3 bg-blue-500 text-white rounded-lg font-medium flex items-center justify-center gap-2 cursor-pointer hover:bg-blue-600 active:bg-blue-700">
+          <Upload className="w-5 h-5" />
+          Importar
+          <input
+            type="file"
+            accept=".json"
+            onChange={(e) => {
+              console.log('Importando archivo...');
+              importData(e);
+            }}
+            className="hidden"
+          />
+        </label>
+      </div>
+
+      {/* Main Content */}
+      {currentView === 'labs' && <LabsView />}
+      {currentView === 'checklist' && <ChecklistView />}
+      
+      {/* Modal de notas */}
+      <NotesModal />
+    </div>
+  );
+};
+
+export default LabRevisionApp;
